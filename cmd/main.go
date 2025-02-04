@@ -244,11 +244,12 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
-	c := make(chan os.Signal, 1)
+
 	go func() {
+		c := make(chan os.Signal, 1)
 		signal.Notify(c, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+		<-c
 		signal.Stop(c)
+		webcheckerController.Shutdown()
 	}()
-	<-c
-	webcheckerController.Shutdown()
 }
