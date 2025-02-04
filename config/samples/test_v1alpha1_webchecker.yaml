@@ -1,0 +1,9 @@
+apiVersion: test.network.io/v1alpha1
+kind: WebChecker
+metadata:
+  labels:
+    app.kubernetes.io/name: probes
+    app.kubernetes.io/managed-by: kustomize
+  name: webchecker-sample
+spec:
+  # TODO(user): Add fields here

@@ -1,0 +1,4 @@
+## Append samples of your project ##
+resources:
+- test_v1alpha1_webchecker.yaml
+# +kubebuilder:scaffold:manifestskustomizesamples
