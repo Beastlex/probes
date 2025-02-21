@@ -85,10 +85,10 @@ func (r *WebCheckerReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	logger := log.FromContext(ctx)
 	logger.Info("Reconciling WebChecker", "request", req)
 
-	var webChecker testv1alpha1.WebChecker
-	// Запрос req в функцию Reconcile приходит в виде "namespace/name" ресурса, поэтому
-	// нужно запросить ресурс из API кластера
-	if err := r.Get(ctx, req.NamespacedName, &webChecker); err != nil {
+	var reconciledResource testv1alpha1.WebChecker
+	// Вместо ресурса в метод Reconcile приходит запрос с указанием namespace/name ресурса,
+	// поэтому нужно запросить ресурс из API кластера
+	if err := r.Get(ctx, req.NamespacedName, &reconciledResource); err != nil {
 		logger.Error(err, "Failed to get WebChecker resource")
 		if errors.IsNotFound(err) {
 			r.mu.Lock()
@@ -100,7 +100,7 @@ func (r *WebCheckerReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	// Если ресурс помечен на удаление, то удаляем запись о нем из контроллера,
 	// чтобы по нему не формировались задачи на проверку
-	if webChecker.DeletionTimestamp != nil {
+	if reconciledResource.DeletionTimestamp != nil {
 		logger.Info("WebChecker resource is being deleted")
 		r.mu.Lock()
 		delete(r.webCheckersStates, req.NamespacedName)
@@ -111,20 +111,20 @@ func (r *WebCheckerReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	// Если ресурс создан в кластере, то добавляем его в список проверяемых ресурсов
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	var webCheckerState WebCheckerState
+	var cachedState WebCheckerState
 	var ok bool
-	if webCheckerState, ok = r.webCheckersStates[req.NamespacedName]; !ok {
+	if cachedState, ok = r.webCheckersStates[req.NamespacedName]; !ok {
 		r.webCheckersStates[req.NamespacedName] = WebCheckerState{
-			Host: webChecker.Spec.Host,
-			Path: webChecker.Spec.Path,
+			Host: reconciledResource.Spec.Host,
+			Path: reconciledResource.Spec.Path,
 		}
 		return ctrl.Result{}, nil
 	}
 
-	if webCheckerState.Host != webChecker.Spec.Host || webCheckerState.Path != webChecker.Spec.Path {
+	if cachedState.Host != reconciledResource.Spec.Host || cachedState.Path != reconciledResource.Spec.Path {
 		r.webCheckersStates[req.NamespacedName] = WebCheckerState{
-			Host: webChecker.Spec.Host,
-			Path: webChecker.Spec.Path,
+			Host: reconciledResource.Spec.Host,
+			Path: reconciledResource.Spec.Path,
 		}
 		return ctrl.Result{}, nil
 	}
@@ -132,11 +132,11 @@ func (r *WebCheckerReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	// Если запрос пришел из канала событий, то необходимо обновить статус ресурса
 	webCheckerStatus := testv1alpha1.WebCheckerStatus{
 		Conditions: []metav1.Condition{
-			statusFromWebCheckerState(webCheckerState),
+			statusFromWebCheckerState(cachedState),
 		},
 	}
-	webChecker.Status = webCheckerStatus
-	err := r.Status().Update(ctx, &webChecker)
+	reconciledResource.Status = webCheckerStatus
+	err := r.Status().Update(ctx, &reconciledResource)
 	if err != nil {
 		logger.Error(err, "Failed to update WebChecker status")
 		return ctrl.Result{}, err
