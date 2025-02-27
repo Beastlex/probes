@@ -267,3 +267,10 @@ func NewWebChecker(client client.Client, scheme *runtime.Scheme) *WebCheckerReco
 		tasksResults:      make(chan WebCheckerProbeResult, WebCheckerProbeResultChannelSize),
 	}
 }
+
+func (r *WebCheckerReconciler) Shutdown() {
+	r.cancelFunc()
+	close(r.tasks)
+	close(r.tasksResults)
+	close(r.events)
+}

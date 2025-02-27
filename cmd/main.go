@@ -21,10 +21,13 @@ import (
 	"crypto/tls"
 	"flag"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
+	"github.com/go-logr/logr"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -238,8 +241,25 @@ func main() {
 	}
 
 	setupLog.Info("starting manager")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+	if err := mgr.Start(SetupSignalHandler(webcheckerController, setupLog)); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+func SetupSignalHandler(reconciler *controller.WebCheckerReconciler, logger logr.Logger) context.Context {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	c := make(chan os.Signal, 2)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-c
+		logger.Info("received signal, shutting down reconciler")
+		cancel()
+		reconciler.Shutdown()
+		<-c
+		os.Exit(1) // second signal. Exit directly.
+	}()
+
+	return ctx
 }
