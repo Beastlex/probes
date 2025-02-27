@@ -21,9 +21,7 @@ import (
 	"crypto/tls"
 	"flag"
 	"os"
-	"os/signal"
 	"path/filepath"
-	"syscall"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -244,12 +242,4 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
-
-	go func() {
-		c := make(chan os.Signal, 1)
-		signal.Notify(c, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-		<-c
-		signal.Stop(c)
-		webcheckerController.Shutdown()
-	}()
 }
